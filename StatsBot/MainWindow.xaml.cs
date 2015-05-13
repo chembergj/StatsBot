@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Win32;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -28,6 +29,7 @@ namespace StatsBot
         MemberStatusWriter diffwriter;
         StatusProperties properties;
         List<MemberStatus>.Enumerator memberEnumerator;
+        readonly MembersListProvider memberListProvider = new MembersListProvider();
 
         public MainWindow()
         {
@@ -57,9 +59,9 @@ namespace StatsBot
                 string htmlText = (string)doc.documentElement.InnerHtml;
                 
                 var total = StatsParser.GetTotalHours(htmlText);
-                bool active = (total.Hours >= 10); 
+                bool active = (total.TotalHours >= 10); 
                 this.writer.WriteStatus(memberEnumerator.Current.CID, active ? "active" : "inactive");
-                if (!active && memberEnumerator.Current.Active)
+                if (active != memberEnumerator.Current.Active)
                 {
                     // Status changed from active->inactive, write in diff file too
                     diffwriter.WriteStatus(memberEnumerator.Current.CID, active ? "active" : "inactive");
@@ -76,6 +78,8 @@ namespace StatsBot
 
                 if (memberEnumerator.MoveNext())
                 {
+                    // Wait a while
+                    System.Threading.Thread.Sleep(10000);
                     browser.Navigate("http://stats.vatsim.net/conn_details_time.php?id=" + memberEnumerator.Current.CID + "&timeframe=6_months");
                 }
                 else
@@ -85,13 +89,19 @@ namespace StatsBot
             }
         }
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        private void btnFilenameSelect_Click(object sender, RoutedEventArgs e)
         {
-            textBlock.Text += "Reading member list\n";
-            var listProvider = new MembersListProvider();
-            memberEnumerator = listProvider.GetMembersList().GetEnumerator();
-            memberEnumerator.MoveNext();
-            textBlock.Text += "Reading member list done\nNow log on to stats.vatsim.net and click the button below when done\n";
+            var dlg = new OpenFileDialog() { CheckFileExists = true };
+
+            if (dlg.ShowDialog().GetValueOrDefault())
+            {
+                tbFilename.Text = dlg.FileName;
+                memberListProvider.Filename = dlg.FileName;
+                textBlock.Text += "Reading member list\n";
+                memberEnumerator = memberListProvider.GetMembersList().GetEnumerator();
+                memberEnumerator.MoveNext();
+                textBlock.Text += "Reading member list done\nNow log on to stats.vatsim.net and click the button below when done\n";
+            }
         }
     }
 }
